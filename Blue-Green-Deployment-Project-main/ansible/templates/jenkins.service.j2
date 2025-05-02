@@ -1,0 +1,13 @@
+[Unit]
+Description=Jenkins
+After=network.target
+
+[Service]
+Type=simple
+User={{ ansible_user }}
+Group={{ ansible_user }}
+ExecStart=/usr/bin/java -jar /opt/jenkins.war
+Restart=always
+
+[Install]
+WantedBy=multi-user.target 

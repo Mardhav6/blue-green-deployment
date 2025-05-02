@@ -1,0 +1,44 @@
+- name: Download Jenkins GPG key
+  ansible.builtin.get_url:
+    url: https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+    dest: /usr/share/keyrings/jenkins-keyring.asc
+    mode: '0644'
+    validate_certs: yes
+
+- name: Add Jenkins repository
+  copy:
+    content: "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] https://pkg.jenkins.io/debian-stable binary/"
+    dest: /etc/apt/sources.list.d/jenkins.list
+    mode: '0644'
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+
+- name: Install Jenkins
+  apt:
+    name: jenkins
+    state: present
+
+- name: Start and enable Jenkins
+  systemd:
+    name: jenkins
+    enabled: yes
+    state: started
+
+- name: Add Jenkins to docker group
+  user:
+    name: jenkins
+    groups: docker
+    append: yes
+  register: docker_group_add
+
+- name: Restart Jenkins
+  systemd:
+    name: jenkins
+    state: restarted
+  when: docker_group_add.changed
+
+- name: Display Jenkins status
+  debug:
+    msg: "Jenkins is running"

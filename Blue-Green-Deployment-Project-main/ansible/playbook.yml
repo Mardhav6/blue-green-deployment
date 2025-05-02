@@ -1,0 +1,51 @@
+- name: Configure VMs for Blue-Green Deployment
+  hosts: all
+  become: yes
+  tasks:
+    - name: Update and upgrade apt packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Install required dependencies
+      apt:
+        name:
+          - openjdk-17-jdk-headless
+          - git
+          - unzip
+          - curl
+          - python3-venv
+          - gnupg
+          - software-properties-common
+          - lsb-release
+          - python3-openssl
+        state: present
+    
+    - name: Install Python 3
+      apt:
+        name: python3
+        state: present
+
+    - name: Set up Docker
+      include_role:
+        name: docker
+
+- name: Setup SonarQube Virtual Machine
+  hosts: sonarqube
+  become: yes
+  roles:
+    - sonarqube
+
+- name: Setup Nexus Virtual Machine
+  hosts: nexus
+  become: yes
+  roles:
+    - nexus
+
+- name: Setup Jenkins Virtual Machine
+  hosts: jenkins
+  become: yes
+  roles:
+    - jenkins
+    - trivy
+    - kubectl

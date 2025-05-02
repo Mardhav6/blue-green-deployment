@@ -1,0 +1,102 @@
+---
+- name: Setup Jenkins Server
+  hosts: jenkins
+  become: yes
+  vars:
+    jenkins_version: "2.426.2"
+    java_version: "11"
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install required packages
+      apt:
+        name:
+          - curl
+          - wget
+          - git
+          - unzip
+          - apt-transport-https
+          - ca-certificates
+          - software-properties-common
+        state: present
+
+    - name: Install Java
+      apt:
+        name: openjdk-{{ java_version }}-jdk
+        state: present
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker repository
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
+        state: present
+
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+
+    - name: Add current user to docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+
+    - name: Download Jenkins
+      get_url:
+        url: "https://get.jenkins.io/war-stable/{{ jenkins_version }}/jenkins.war"
+        dest: /opt/jenkins.war
+        mode: '0644'
+
+    - name: Create Jenkins directory
+      file:
+        path: /var/lib/jenkins
+        state: directory
+        mode: '0755'
+
+    - name: Create Jenkins service file
+      template:
+        src: jenkins.service.j2
+        dest: /etc/systemd/system/jenkins.service
+        mode: '0644'
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Start and enable Jenkins service
+      systemd:
+        name: jenkins
+        state: started
+        enabled: yes
+
+    - name: Install kubectl
+      shell: |
+        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+        chmod +x kubectl
+        mv kubectl /usr/local/bin/
+
+    - name: Install AWS CLI
+      shell: |
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+        unzip awscliv2.zip
+        ./aws/install
+        rm -rf aws awscliv2.zip
+
+    - name: Configure AWS credentials
+      template:
+        src: aws_credentials.j2
+        dest: /home/{{ ansible_user }}/.aws/credentials
+        mode: '0600'
+      when: aws_access_key is defined and aws_secret_key is defined 
